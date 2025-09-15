@@ -1,0 +1,30 @@
+create_supply_net VSS
+create_supply_net VDDL
+create_supply_net VDDH
+
+create_supply_set ss_high -function {power VDDH} -function {ground VSS}
+create_supply_set ss_low -function {power VDDL} -function {ground ss_high.ground}
+
+create_power_domain PD_FIFO -elements {FIFO_0 FIFO_1 FIFO_2} -supply {primary ss_low}
+create_power_domain PD_ROUTER -supply {primary ss_high}
+
+create_supply_port VDDL -domain PD_FIFO -direction in
+create_supply_port VSS -domain PD_ROUTER -direction in
+create_supply_port VDDH -domain PD_ROUTER -direction in
+
+connect_supply_net VSS -ports VSS
+connect_supply_net VDDL -ports VDDL
+connect_supply_net VDDH -ports VDDH
+
+set_level_shifter risc_ls_in -domain PD_FIFO  \
+    -applies_to inputs -rule low_to_high -location self
+set_level_shifter risc_ls_out -domain PD_FIFO  \
+    -applies_to outputs -rule high_to_low -location parent
+
+set_design_attributes -elements {.} -attribute correlated_supply_group {*}
+add_power_state -supply ss_high -state ON { -supply_expr {power == {FULL_ON 1.16} && ground == {FULL_ON 0.0}} }
+add_power_state -supply ss_low -state ON { -supply_expr {power == {FULL_ON 0.95} && ground == {FULL_ON 0.0}} }
+
+create_power_state_group PST
+add_power_state -group PST  \
+    -state RUN { -logic_expr {ss_low==ON&&ss_high==ON} }
